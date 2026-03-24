@@ -1,5 +1,5 @@
 // 레포 적합도 평가 Tool
-import { RepoEvaluationResult } from '../types';
+import { RepoEvaluationResult } from '../types.js';
 
 export interface EvaluateRepoParams {
   repo_url: string;
@@ -16,4 +16,3 @@ export async function evaluate_repo({ repo_url, project_context }: EvaluateRepoP
     integration_type: 'package'
   };
 }
-

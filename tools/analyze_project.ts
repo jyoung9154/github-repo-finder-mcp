@@ -2,6 +2,7 @@
 import { ProjectAnalysisResult } from '../types.js';
 import fs from 'fs';
 import path from 'path';
+// @ts-ignore
 import { callLLM, run_subagent } from '@modelcontextprotocol/sdk'; // MCP SDK의 LLM 호출 예시
 
 export interface AnalyzeProjectParams {

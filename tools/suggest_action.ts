@@ -1,5 +1,5 @@
 // 액션 제안 Tool
-import { SuggestActionResult } from '../types';
+import { SuggestActionResult } from '../types.js';
 
 export interface SuggestActionParams {
   repo: string;
@@ -13,4 +13,3 @@ export async function suggest_action({ repo, integration_type }: SuggestActionPa
     guide: 'npm install로 설치하세요.'
   };
 }
-

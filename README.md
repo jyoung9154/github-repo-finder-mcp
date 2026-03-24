@@ -22,7 +22,20 @@ bash install.sh
 
 > 기존 설정 파일이 있으면 자동 백업(.bak) 후 덮어씁니다.
 
+
 설정이 끝나면 바로 해당 IDE에서 MCP 서버를 사용할 수 있습니다!
+
+---
+
+## 바로 이렇게 사용해보세요
+
+설치 및 연동이 끝났다면, 아래와 같이 명령어를 입력해 실사용/테스트를 시작할 수 있습니다:
+
+```bash
+@github-repo-finder /my-project 폴더 분석하고 필요한 라이브러리 추천해줘
+react pdf 뷰어 라이브러리 찾아줘 (TypeScript, 스타 500개 이상)
+vercel/next.js 저장소 README 보여줘
+```
 
 ---
 

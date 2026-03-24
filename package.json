@@ -14,7 +14,7 @@
     "github-repo-finder-mcp": "./dist/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@octokit/rest": "^20.0.0"
   },
   "devDependencies": {

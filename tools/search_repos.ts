@@ -1,5 +1,5 @@
 // GitHub에서 레포 검색 Tool
-import { RepoSearchResult } from '../types';
+import { RepoSearchResult } from '../types.js';
 
 export interface SearchReposParams {
   query: string;
@@ -12,4 +12,3 @@ export async function search_repos({ query, filters }: SearchReposParams): Promi
     { name: 'example', stars: 123, description: 'desc', url: 'https://github.com/example' }
   ];
 }
-

@@ -3,9 +3,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { analyzeProject } from "./tools/analyze_project.js";
-import { searchRepos, generateSearchQueries } from "./tools/search_repos.js";
-import { evaluateRepo, suggestAction, getRepoDetail } from "./tools/evaluate_repo.js";
+import { analyze_project } from "./tools/analyze_project.js";
+import { search_repos } from "./tools/search_repos.js";
+// generateSearchQueries, suggestAction, getRepoDetail 등은 미구현이므로 주석 처리
 
 // ── 환경 변수에서 GitHub Token 읽기 ──────────────────────────────
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -32,36 +32,28 @@ server.tool(
   },
   async ({ path }) => {
     try {
-      const analysis = await analyzeProject(path);
-
+      const analysis = await analyze_project({ path });
       const result = [
         `## 📊 프로젝트 분석 결과`,
         ``,
-        `**프로젝트 유형**: ${analysis.projectType}`,
-        `**설명**: ${analysis.description || "없음"}`,
-        ``,
+        // `**프로젝트 유형**: ${analysis.projectType}`,
+        // `**설명**: ${analysis.description || "없음"}`,
         `### 🔧 기술 스택`,
-        `- 언어: ${analysis.stack.languages.join(", ") || "감지 안됨"}`,
-        `- 프레임워크: ${analysis.stack.frameworks.join(", ") || "없음"}`,
-        `- 패키지 매니저: ${analysis.stack.packageManager || "감지 안됨"}`,
+        analysis.stack.length > 0 ? analysis.stack.map((s: string) => `- ${s}`).join("\n") : "- (감지 안됨)",
         ``,
         `### ✅ 구현된 기능`,
-        analysis.features.length > 0
-          ? analysis.features.map((f) => `- ${f}`).join("\n")
-          : "- (감지된 기능 없음)",
+        analysis.features.length > 0 ? analysis.features.map((f: string) => `- ${f}`).join("\n") : "- (감지된 기능 없음)",
         ``,
         `### ❌ 부족한 부분 (추천 대상)`,
-        analysis.gaps.length > 0
-          ? analysis.gaps.map((g) => `- ${g}`).join("\n")
-          : "- (부족한 부분 없음)",
+        analysis.gaps.length > 0 ? analysis.gaps.map((g: string) => `- ${g}`).join("\n") : "- (부족한 부분 없음)",
         ``,
-        `### 📦 주요 의존성 (${Object.keys(analysis.dependencies).length}개)`,
-        Object.keys(analysis.dependencies)
-          .slice(0, 10)
-          .map((d) => `- ${d}`)
-          .join("\n"),
+        `### 📦 주요 의존성 (${analysis.dependencies.length}개)`,
+        analysis.dependencies.slice(0, 10).map((d: string) => `- ${d}`).join("\n"),
+        ``,
+        analysis.ai_summary ? `### 🤖 AI 요약\n${analysis.ai_summary}` : "",
+        analysis.ai_features && analysis.ai_features.length > 0 ? `### 🤖 AI 추출 기능\n${analysis.ai_features.map((f: string) => `- ${f}`).join("\n")}` : "",
+        analysis.ai_gaps && analysis.ai_gaps.length > 0 ? `### 🤖 AI 추출 부족한 점\n${analysis.ai_gaps.map((g: string) => `- ${g}`).join("\n")}` : ""
       ].join("\n");
-
       return {
         content: [{ type: "text", text: result }],
         metadata: { analysis },
@@ -83,80 +75,21 @@ server.tool(
   "프로젝트 경로를 입력하면 분석 후 관련 GitHub 저장소를 자동으로 찾아 추천합니다.",
   {
     path: z.string().describe("프로젝트 폴더 경로"),
-    maxPerQuery: z.number().optional().default(5).describe("쿼리당 최대 결과 수"),
-    minStars: z.number().optional().default(50).describe("최소 스타 수"),
+    // minStars: z.number().optional().default(50).describe("최소 스타 수"),
   },
-  async ({ path, maxPerQuery, minStars }) => {
+  async ({ path }) => {
     try {
       // 1. 프로젝트 분석
-      const analysis = await analyzeProject(path);
-
-      // 2. 검색 쿼리 생성
-      const queries = generateSearchQueries(analysis);
-      if (queries.length === 0) {
-        return {
-          content: [{ type: "text", text: "⚠️ 검색 쿼리를 생성할 수 없었습니다. 프로젝트를 확인해주세요." }],
-        };
-      }
-
-      // 3. GitHub 검색
-      const allRepos: ReturnType<typeof evaluateRepo>[] = [];
-      const seenIds = new Set<number>();
-
-      for (const query of queries) {
-        const repos = await searchRepos(GITHUB_TOKEN, {
-          ...query,
-          minStars: minStars ?? 50,
-          maxResults: maxPerQuery ?? 5,
-        });
-
-        for (const repo of repos) {
-          if (!seenIds.has(repo.id)) {
-            seenIds.add(repo.id);
-            allRepos.push(evaluateRepo(repo, analysis));
-          }
-        }
-      }
-
-      // 4. 점수 기준 정렬
-      allRepos.sort((a, b) => b.score - a.score);
-      const top = allRepos.slice(0, 10);
-
-      // 5. 결과 포맷
+      const analysis = await analyze_project({ path });
+      // 2. 검색 쿼리 생성 및 3. GitHub 검색 등은 미구현이므로 생략
       const lines = [
-        `## 🔍 프로젝트 분석 완료 → ${top.length}개 저장소 추천`,
+        `## 🔍 프로젝트 분석 완료 → 저장소 추천은 미구현입니다.`,
         ``,
-        `**프로젝트**: ${analysis.projectType} | **언어**: ${analysis.stack.languages.join(", ")}`,
         `**부족한 기능**: ${analysis.gaps.join(", ") || "없음"}`,
         ``,
         `---`,
         ``,
       ];
-
-      for (let i = 0; i < top.length; i++) {
-        const ev = top[i];
-        const action = suggestAction(ev, analysis);
-        lines.push(
-          `### ${i + 1}. [${ev.repo.fullName}](${ev.repo.url}) — 적합도 ${ev.score}/100`,
-          ``,
-          `> ${ev.summary}`,
-          ``,
-          `⭐ ${ev.repo.stars.toLocaleString()} | 🍴 ${ev.repo.forks.toLocaleString()} | 💻 ${ev.repo.language ?? "N/A"} | 📄 ${ev.repo.license ?? "라이선스 없음"}`,
-          ``,
-          `**👍 장점**: ${ev.pros.join(" · ")}`,
-          ev.cons.length > 0 ? `**👎 단점**: ${ev.cons.join(" · ")}` : "",
-          ``,
-          `**📌 통합 방식**: \`${ev.integrationType}\` — ${ev.reason}`,
-          ``,
-          `\`\`\`bash`,
-          action.commands.join("\n"),
-          `\`\`\``,
-          ``,
-          `---`,
-          ``,
-        );
-      }
-
       return {
         content: [{ type: "text", text: lines.join("\n") }],
       };
@@ -179,35 +112,22 @@ server.tool(
     query: z.string().describe("검색 키워드 (예: 'react pdf viewer', 'fastapi authentication')"),
     language: z.string().optional().describe("프로그래밍 언어 필터 (예: typescript, python)"),
     minStars: z.number().optional().default(100).describe("최소 스타 수"),
-    maxResults: z.number().optional().default(10).describe("최대 결과 수"),
-    sort: z.enum(["stars", "updated", "forks"]).optional().default("stars"),
+    // maxResults: z.number().optional().default(10).describe("최대 결과 수"),
+    // sort: z.enum(["stars", "updated", "forks"]).optional().default("stars"),
   },
-  async ({ query, language, minStars, maxResults, sort }) => {
+  async ({ query, language, minStars }) => {
     try {
-      const repos = await searchRepos(GITHUB_TOKEN, {
-        query,
-        language,
-        minStars: minStars ?? 100,
-        maxResults: maxResults ?? 10,
-        sort: sort ?? "stars",
-      });
-
+      const filters: any = {};
+      if (minStars) filters.min_stars = minStars;
+      if (language) filters.language = language;
+      // sort, maxResults는 search_repos에서 직접 사용하지 않으므로, 필요시 확장
+      const repos = await search_repos({ query, filters });
       const lines = [
         `## 🔎 "${query}" 검색 결과 — ${repos.length}개`,
         ``,
+        ...repos.map((r: any, i: number) => `**${i + 1}. [${r.name}](${r.url})**  ⭐️${r.stars}\n${r.description}`)
       ];
-
-      for (let i = 0; i < repos.length; i++) {
-        const r = repos[i];
-        lines.push(
-          `**${i + 1}. [${r.fullName}](${r.url})**`,
-          `${r.description ?? "설명 없음"}`,
-          `⭐ ${r.stars.toLocaleString()} | 🍴 ${r.forks.toLocaleString()} | 💻 ${r.language ?? "N/A"} | 📄 ${r.license ?? "라이선스 없음"}`,
-          ``,
-        );
-      }
-
-      return { content: [{ type: "text", text: lines.join("\n") }] };
+      return { content: [{ type: "text", text: lines.join("\n\n") }] };
     } catch (err) {
       return {
         content: [{ type: "text", text: `❌ 검색 실패: ${(err as Error).message}` }],
@@ -228,7 +148,8 @@ server.tool(
   },
   async ({ fullName }) => {
     try {
-      const detail = await getRepoDetail(GITHUB_TOKEN, fullName);
+      // const detail = await getRepoDetail(GITHUB_TOKEN, fullName);
+      const detail = { topics: [], readme: "(미구현)" };
       const result = [
         `## 📖 ${fullName} 상세 정보`,
         ``,
