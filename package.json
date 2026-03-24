@@ -1,0 +1,25 @@
+{
+  "name": "github-repo-finder-mcp",
+  "version": "1.0.0",
+  "description": "프로젝트를 분석하여 관련 GitHub 저장소를 추천해주는 MCP 서버",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "prepare": "npm run build"
+  },
+  "bin": {
+    "github-repo-finder-mcp": "./dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@octokit/rest": "^20.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
