@@ -2,8 +2,6 @@
 import { ProjectAnalysisResult } from '../types.js';
 import fs from 'fs';
 import path from 'path';
-// @ts-ignore
-import { callLLM, run_subagent } from '@modelcontextprotocol/sdk'; // MCP SDK의 LLM 호출 예시
 
 export interface AnalyzeProjectParams {
   path: string;
@@ -27,27 +25,12 @@ async function ruleBasedAnalyze(projectPath: string) {
   return { stack, features, gaps, dependencies };
 }
 
-// AI 분석 함수 (MCP 에이전트 활용)
-async function aiAnalyzeWithAgent(context: { stack: string[]; features: string[]; dependencies: string[]; }) {
-  const prompt = `아래 프로젝트의 주요 기능, 특징, 부족한 점을 요약해줘.\n스택: ${context.stack.join(', ')}\n의존성: ${context.dependencies.join(', ')}\n기능: ${context.features.join(', ')}\n`;
-  const aiResult = await run_subagent({
-    agentName: "Plan", // 주요 기능 분석에 특화된 MCP 에이전트
-    task: prompt
-  });
-  // aiResult는 { summary, features, gaps } 등으로 가정
-  return aiResult;
-}
-
 export async function analyze_project({ path }: AnalyzeProjectParams): Promise<ProjectAnalysisResult> {
-  // 1. 룰 기반 선행분석
-  const ruleResult = await ruleBasedAnalyze(path);
-  // 2. AI MCP 에이전트 분석
-  const aiResult = await aiAnalyzeWithAgent(ruleResult);
-  // 3. 결과 병합
+  const result = await ruleBasedAnalyze(path);
   return {
-    ...ruleResult,
-    ai_summary: aiResult.summary,
-    ai_features: aiResult.features,
-    ai_gaps: aiResult.gaps
+    stack: result.stack,
+    features: result.features,
+    gaps: result.gaps,
+    dependencies: result.dependencies,
   };
 }
