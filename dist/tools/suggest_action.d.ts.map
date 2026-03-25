@@ -1,0 +1,1 @@
+{"version":3,"file":"suggest_action.d.ts","sourceRoot":"","sources":["../../tools/suggest_action.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,mBAAmB,EAAE,MAAM,aAAa,CAAC;AAElD,MAAM,WAAW,mBAAmB;IAClC,IAAI,EAAE,MAAM,CAAC;IACb,gBAAgB,EAAE,MAAM,GAAG,SAAS,GAAG,WAAW,CAAC;CACpD;AAED,wBAAsB,cAAc,CAAC,EAAE,IAAI,EAAE,gBAAgB,EAAE,EAAE,mBAAmB,GAAG,OAAO,CAAC,mBAAmB,CAAC,CAMlH"}

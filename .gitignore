@@ -1,7 +1,19 @@
 # Node.js
 node_modules/
-package-lock.json
 npm-debug.log*
+
+# 루트에 생성된 컴파일 아티팩트 (dist/ 만 사용)
+/*.js
+/*.js.map
+/*.d.ts
+/*.d.ts.map
+/tools/*.js
+/tools/*.js.map
+/tools/*.d.ts
+/tools/*.d.ts.map
+/github-repo-finder-mcp@*
+/npm
+/tsc
 
 # IDE/Editor
 .idea/
@@ -27,4 +39,3 @@ resources/project__structure.json
 
 # 기타 숨김 파일
 *~
-

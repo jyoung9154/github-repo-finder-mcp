@@ -3,16 +3,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { Octokit } from "@octokit/rest";
 import { analyze_project } from "./tools/analyze_project.js";
 import { search_repos } from "./tools/search_repos.js";
-// generateSearchQueries, suggestAction, getRepoDetail 등은 미구현이므로 주석 처리
 
 // ── 환경 변수에서 GitHub Token 읽기 ──────────────────────────────
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 if (!GITHUB_TOKEN) {
-  console.error("❌ 환경 변수 GITHUB_TOKEN이 설정되지 않았습니다.");
-  console.error("   export GITHUB_TOKEN=ghp_your_token_here");
-  process.exit(1);
+  // process.exit 하지 않음 → MCP 핸드셰이크 완료 후 각 tool에서 개별 처리
+  console.error("⚠️  GITHUB_TOKEN이 설정되지 않았습니다. GitHub 검색 기능이 제한됩니다.");
+  console.error("   install.sh 를 실행하거나 환경변수 GITHUB_TOKEN 을 설정하세요.");
 }
 
 // ── MCP 서버 초기화 ───────────────────────────────────────────────
@@ -81,18 +81,40 @@ server.tool(
     try {
       // 1. 프로젝트 분석
       const analysis = await analyze_project({ path });
-      // 2. 검색 쿼리 생성 및 3. GitHub 검색 등은 미구현이므로 생략
-      const lines = [
-        `## 🔍 프로젝트 분석 완료 → 저장소 추천은 미구현입니다.`,
-        ``,
-        `**부족한 기능**: ${analysis.gaps.join(", ") || "없음"}`,
-        ``,
-        `---`,
+
+      const lines: string[] = [
+        `## 📊 프로젝트 분석 결과`,
+        `- **스택**: ${analysis.stack.join(', ') || '감지 안됨'}`,
+        `- **구현된 기능**: ${analysis.features.join(', ') || '없음'}`,
+        `- **부족한 부분**: ${analysis.gaps.join(', ') || '없음'}`,
         ``,
       ];
-      return {
-        content: [{ type: "text", text: lines.join("\n") }],
-      };
+
+      // 2. gaps 기반으로 GitHub 검색
+      if (analysis.gaps.length > 0 && process.env.GITHUB_TOKEN) {
+        lines.push(`## 🔎 추천 GitHub 저장소`);
+        for (const gap of analysis.gaps.slice(0, 3)) {
+          const query = `${analysis.stack[0] || ''} ${gap}`.trim();
+          try {
+            const repos = await search_repos({ query, filters: { min_stars: 100 } });
+            if (repos.length > 0) {
+              lines.push(`\n### "${gap}" 관련 추천`);
+              repos.slice(0, 3).forEach((r, i) => {
+                lines.push(`**${i + 1}. [${r.name}](${r.url})**  ⭐️${r.stars}`);
+                lines.push(`> ${r.description}`);
+              });
+            }
+          } catch {
+            // 개별 검색 실패는 무시하고 계속
+          }
+        }
+      } else if (!process.env.GITHUB_TOKEN) {
+        lines.push(`> ⚠️ GITHUB_TOKEN이 없어 GitHub 검색을 건너뜁니다.`);
+      } else {
+        lines.push(`> ✅ 부족한 부분이 없습니다!`);
+      }
+
+      return { content: [{ type: "text", text: lines.join("\n") }] };
     } catch (err) {
       return {
         content: [{ type: "text", text: `❌ 실패: ${(err as Error).message}` }],
@@ -147,17 +169,35 @@ server.tool(
     fullName: z.string().describe("저장소 전체 이름 (예: vercel/next.js)"),
   },
   async ({ fullName }) => {
+    if (!GITHUB_TOKEN) {
+      return { content: [{ type: "text", text: "❌ GITHUB_TOKEN이 설정되지 않았습니다." }], isError: true };
+    }
     try {
-      // const detail = await getRepoDetail(GITHUB_TOKEN, fullName);
-      const detail = { topics: [], readme: "(미구현)" };
+      const [owner, repo] = fullName.split("/");
+      const octokit = new Octokit({ auth: GITHUB_TOKEN });
+
+      const [repoInfo, readmeRes] = await Promise.allSettled([
+        octokit.repos.get({ owner, repo }),
+        octokit.repos.getReadme({ owner, repo }),
+      ]);
+
+      const info = repoInfo.status === "fulfilled" ? repoInfo.value.data : null;
+      let readmeText = "(README 없음)";
+      if (readmeRes.status === "fulfilled") {
+        readmeText = Buffer.from(readmeRes.value.data.content, "base64").toString("utf-8").slice(0, 3000);
+      }
+
       const result = [
-        `## 📖 ${fullName} 상세 정보`,
+        `## 📖 ${fullName}`,
+        info ? `⭐ ${info.stargazers_count} | 🍴 ${info.forks_count} | ${info.language || "언어 미지정"}` : "",
+        info ? `> ${info.description || "설명 없음"}` : "",
         ``,
-        `**토픽**: ${detail.topics.join(", ") || "없음"}`,
+        `**토픽**: ${info?.topics?.join(", ") || "없음"}`,
+        `**홈페이지**: ${info?.homepage || "없음"}`,
+        `**라이선스**: ${info?.license?.name || "없음"}`,
         ``,
-        `### README (앞 2000자)`,
-        ``,
-        detail.readme,
+        `### README (앞 3000자)`,
+        readmeText,
       ].join("\n");
 
       return { content: [{ type: "text", text: result }] };
